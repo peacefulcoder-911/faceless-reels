@@ -1,52 +1,80 @@
 import os
+import uuid
+import urllib.parse
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TEMP_DIR = REPO_ROOT / "output" / "temp"
-CLIPS_DIR = REPO_ROOT / "output" / "clips"
-TEMP_DIR.mkdir(parents=True, exist_ok=True)
-CLIPS_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR = REPO_ROOT / "output"
+TEMP_DIR = OUTPUT_DIR / "temp"
+CLIPS_DIR = OUTPUT_DIR / "clips"
+SCENE_IMAGES_DIR = OUTPUT_DIR / "scene_images"
 
-# Curated high-res 9:16 vertical textures & cinematic backdrops for each niche
-NICHE_BACKDROPS = {
-    "biblical": [
-        "https://images.unsplash.com/photo-1543783207-ec64e4d95325?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&h=1920&q=85"
-    ],
-    "anime": [
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&h=1920&q=85"
-    ],
-    "heists": [
-        "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1080&h=1920&q=85"
-    ],
-    "mythology": [
-        "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1543783207-ec64e4d95325?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=1080&h=1920&q=85",
-        "https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1080&h=1920&q=85"
-    ]
+for d in [TEMP_DIR, CLIPS_DIR, SCENE_IMAGES_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
+NICHE_STYLES = {
+    "biblical": "ancient biblical era, dramatic chiaroscuro oil painting, divine golden rays, renaissance masterpiece, hyper-detailed",
+    "anime": "makoto shinkai ufotable anime visual, vibrant colors, glowing highlights, atmospheric aesthetic, cinematic anime",
+    "heists": "gritty cinematic 35mm film still, david fincher noir lighting, high suspense, moody realistic photography",
+    "mythology": "epic mythic fantasy concept art, glowing celestial runes, towering ancient monuments, artstation trending",
+    "school_gossip": "vibrant 2D modern webtoon storytime illustration, expressive characters, colorful comic aesthetic",
+    "scary_stories": "creepy analog horror, liminal space aesthetic, eerie darkness, atmospheric flashlight illumination",
+    "history": "baroque royal portrait, grand opulent palace hall, regal golden drapery, historical museum masterpiece",
+    "kindness": "warm 3D pixar disney animation style, emotional expressive characters, soft golden hour lighting, cinematic render"
 }
 
-def render_ken_burns_clip(image_path: str, duration: float, output_clip_path: str, fps: int = 30) -> str:
-    """Renders a dynamic vertical 1080x1920 Ken Burns slow-zoom clip from a static visual."""
-    os.makedirs(os.path.dirname(output_clip_path), exist_ok=True)
-    frames = int(duration * fps)
+def generate_ai_scene_image(prompt: str, niche: str, output_path: str) -> str:
+    """
+    Generates a 9:16 vertical AI artwork tailored to the scene prompt and niche style.
+    Uses high-speed FLUX neural synthesis with niche aesthetic conditioning.
+    """
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    style_suffix = NICHE_STYLES.get(niche, NICHE_STYLES["biblical"])
+    clean_prompt = prompt.replace("\n", " ").strip()
+    full_prompt = f"{clean_prompt}, {style_suffix}, vertical 9:16 framing, highly detailed, 8k resolution"
+    encoded_prompt = urllib.parse.quote(full_prompt)
     
-    # Zoom filter: gradual zoom from 1.0 to 1.15 centered on frame
-    vf = (
-        f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-        f"zoompan=z='min(zoom+0.0012,1.20)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps={fps}"
-    )
+    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&nologo=true"
+    cmd = ["curl", "-s", "-L", "--max-time", "15", url, "-o", str(output_path)]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+    if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
+        create_color_gradient_fallback(output_path, "#0f172a")
+
+    return output_path
+
+def render_ken_burns_clip(
+    image_path: str,
+    duration: float,
+    output_clip_path: str,
+    motion_type: int = 0,
+    fps: int = 30
+) -> str:
+    """
+    Renders dynamic vertical 1080x1920 Ken Burns motion editing from a scene image.
+    Varies motion style (slow zoom-in, slow zoom-out, pan/tilt) for professional video rhythm.
+    """
+    os.makedirs(os.path.dirname(output_clip_path), exist_ok=True)
+    frames = max(30, int(duration * fps))
+    
+    # 4 distinct cinematic motion presets for rhythm
+    motion_index = motion_type % 4
+    if motion_index == 0:
+        # Slow Cinematic Zoom In: 1.0 -> 1.15
+        zoom_filter = f"zoompan=z='min(zoom+0.0012,1.15)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps={fps}"
+    elif motion_index == 1:
+        # Slow Dramatic Zoom Out: 1.15 -> 1.01
+        zoom_filter = f"zoompan=z='if(lte(zoom,1.0),1.15,max(1.001,zoom-0.0012))':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps={fps}"
+    elif motion_index == 2:
+        # Pan Downwards with subtle 1.1x zoom
+        zoom_filter = f"zoompan=z='1.10':d={frames}:x='iw/2-(iw/zoom/2)':y='if(lte(on,1),0,min(ih-ih/zoom,y+0.6))':s=1080x1920:fps={fps}"
+    else:
+        # Climax Dramatic Push-In: 1.0 -> 1.20
+        zoom_filter = f"zoompan=z='min(zoom+0.0016,1.20)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps={fps}"
+
+    vf = f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,{zoom_filter}"
 
     cmd = [
         "ffmpeg", "-y",
@@ -79,31 +107,55 @@ def create_color_gradient_fallback(output_img_path: str, color_hex: str = "#1e1b
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return output_img_path
 
-def compile_scenes_to_video_track(scenes: List[Dict[str, Any]], niche: str, output_track_path: str) -> str:
-    """Renders all scene clips with Ken Burns zoom and stitches into a 1080x1920 video track."""
+def compile_scenes_to_video_track(
+    scenes: List[Dict[str, Any]],
+    niche: str,
+    output_track_path: str,
+    target_total_duration: Optional[float] = None
+) -> str:
+    """
+    Renders custom AI images for every scene matching the exact story narrative,
+    animates each scene with Ken Burns motion, and stitches them into a 1080x1920 video track.
+    If target_total_duration is provided, durations are normalized to match audio precisely.
+    """
     os.makedirs(os.path.dirname(output_track_path), exist_ok=True)
-    clip_paths = []
+    num_scenes = max(1, len(scenes))
     
-    backdrops = NICHE_BACKDROPS.get(niche, NICHE_BACKDROPS["biblical"])
+    # Calculate scene durations
+    if target_total_duration and target_total_duration > 0:
+        base_dur = target_total_duration / num_scenes
+        durations = [base_dur] * num_scenes
+    else:
+        durations = [float(s.get("duration", 8)) for s in scenes]
+
+    clip_paths = []
 
     for idx, scene in enumerate(scenes):
-        duration = float(scene.get("duration", 8))
-        img_temp = TEMP_DIR / f"scene_{idx}_{niche}.jpg"
-        clip_temp = TEMP_DIR / f"scene_clip_{idx}.mp4"
-
-        # Download or create visual
-        url = backdrops[idx % len(backdrops)]
-        curl_cmd = ["curl", "-s", "-L", url, "-o", str(img_temp)]
-        res = subprocess.run(curl_cmd, capture_output=True)
+        duration = durations[idx]
+        scene_prompt = scene.get("visualPrompt") or scene.get("text") or f"scene {idx + 1}"
         
-        if not os.path.exists(img_temp) or os.path.getsize(img_temp) < 1000:
-            create_color_gradient_fallback(str(img_temp), "#0f172a")
+        # 1. Check if scene already has an approved/generated image
+        img_url = scene.get("imageUrl")
+        chosen_img_path = None
+        if img_url:
+            clean_name = os.path.basename(img_url)
+            candidate = SCENE_IMAGES_DIR / clean_name
+            if candidate.exists() and candidate.stat().st_size > 1000:
+                chosen_img_path = str(candidate)
 
-        render_ken_burns_clip(str(img_temp), duration, str(clip_temp))
+        # 2. If no image yet, generate AI scene art matching the theme & story beat
+        if not chosen_img_path:
+            img_file = SCENE_IMAGES_DIR / f"scene_{uuid.uuid4().hex[:6]}_{idx}_{niche}.jpg"
+            generate_ai_scene_image(scene_prompt, niche, str(img_file))
+            chosen_img_path = str(img_file)
+
+        # 3. Render Ken Burns animated clip with motion preset
+        clip_temp = TEMP_DIR / f"clip_{uuid.uuid4().hex[:6]}_{idx}.mp4"
+        render_ken_burns_clip(chosen_img_path, duration, str(clip_temp), motion_type=idx)
         clip_paths.append(str(clip_temp))
 
-    # Concat all clips using ffmpeg concat demuxer
-    concat_list_file = TEMP_DIR / "concat_clips.txt"
+    # 4. Concat all scene clips seamlessly into video track
+    concat_list_file = TEMP_DIR / f"concat_{uuid.uuid4().hex[:6]}.txt"
     with open(concat_list_file, "w") as f:
         for p in clip_paths:
             f.write(f"file '{p}'\n")

@@ -27,9 +27,13 @@ FINAL_VIDEO_DIR = os.path.join(OUTPUT_DIR, "final_video")
 STATE_DIR = os.path.join(OUTPUT_DIR, "state")
 os.makedirs(STATE_DIR, exist_ok=True)
 
-# Mount video directory for direct streaming in browser player
+SCENE_IMAGES_DIR = os.path.join(OUTPUT_DIR, "scene_images")
+os.makedirs(SCENE_IMAGES_DIR, exist_ok=True)
+
+# Mount video and scene images directory
 if os.path.exists(FINAL_VIDEO_DIR):
     app.mount("/videos", StaticFiles(directory=FINAL_VIDEO_DIR), name="videos")
+app.mount("/scene-images", StaticFiles(directory=SCENE_IMAGES_DIR), name="scene_images")
 
 # In-memory / persisted jobs store
 JOBS_FILE = os.path.join(STATE_DIR, "active_jobs.json")
@@ -255,6 +259,18 @@ from backend.pipeline_bridge import (
     generate_subtitles_engine,
     assemble_reel_engine
 )
+
+class SceneImageRequest(BaseModel):
+    prompt: str
+    niche: str = "biblical"
+
+@app.post("/api/generate-scene-image")
+def generate_single_scene_image(req: SceneImageRequest):
+    from backend.scene_visualizer import generate_ai_scene_image
+    filename = f"preview_{uuid.uuid4().hex[:8]}.jpg"
+    out_path = os.path.join(SCENE_IMAGES_DIR, filename)
+    generate_ai_scene_image(req.prompt, req.niche, out_path)
+    return {"imageUrl": f"/scene-images/{filename}"}
 
 @app.post("/api/generate-script")
 async def generate_script(req: ScriptRequest):

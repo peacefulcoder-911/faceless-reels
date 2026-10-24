@@ -74,6 +74,32 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
+  const [generatingImgIdx, setGeneratingImgIdx] = useState(null);
+
+  // Generate single scene image preview
+  const handleGenerateSceneImage = async (idx) => {
+    if (!scriptData || !scriptData.scenes || !scriptData.scenes[idx]) return;
+    setGeneratingImgIdx(idx);
+    const scene = scriptData.scenes[idx];
+    try {
+      const res = await fetch(`${API_BASE}/api/generate-scene-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: scene.visualPrompt || scene.text,
+          niche: selectedNiche?.id || 'biblical'
+        })
+      });
+      const data = await res.json();
+      const updatedScenes = [...scriptData.scenes];
+      updatedScenes[idx] = { ...updatedScenes[idx], imageUrl: data.imageUrl };
+      setScriptData({ ...scriptData, scenes: updatedScenes });
+    } catch (err) {
+      console.error("Failed to generate scene image:", err);
+    } finally {
+      setGeneratingImgIdx(null);
+    }
+  };
 
   // Fetch initial metadata from backend
   useEffect(() => {
@@ -161,6 +187,31 @@ export default function App() {
       const data = await res.json();
       setScriptData(data);
       setCurrentStep(2);
+
+      // Auto-trigger themed visual generation for each story scene
+      if (data.scenes && Array.isArray(data.scenes)) {
+        data.scenes.forEach(async (sc, idx) => {
+          try {
+            const imgRes = await fetch(`${API_BASE}/api/generate-scene-image`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: sc.visualPrompt || sc.text,
+                niche: selectedNiche?.id || 'biblical'
+              })
+            });
+            const imgData = await imgRes.json();
+            setScriptData(prev => {
+              if (!prev || !prev.scenes) return prev;
+              const nextScenes = [...prev.scenes];
+              nextScenes[idx] = { ...nextScenes[idx], imageUrl: imgData.imageUrl };
+              return { ...prev, scenes: nextScenes };
+            });
+          } catch (e) {
+            console.error("Auto image gen error:", e);
+          }
+        });
+      }
     } catch (err) {
       console.error("Script generation failed:", err);
       // Fallback preview
@@ -798,63 +849,147 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Scene Breakdown with Inline Editor */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+                  {/* Scene Breakdown with Story Visual Cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
                     {scriptData?.scenes?.map((scene, idx) => (
                       <div
                         key={idx}
                         style={{
-                          background: 'rgba(0,0,0,0.4)',
-                          borderRadius: '12px',
-                          padding: '16px',
-                          border: '1px solid rgba(255,255,255,0.07)'
+                          background: 'rgba(0,0,0,0.45)',
+                          borderRadius: '14px',
+                          padding: '18px',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 140px',
+                          gap: '16px',
+                          alignItems: 'start'
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#a855f7' }}>
-                            SCENE {scene.scene} • {scene.shotType}
-                          </span>
-                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                            ~{scene.duration || 8}s
-                          </span>
-                        </div>
-                        
-                        <textarea
-                          value={scene.text}
-                          onChange={(e) => {
-                            const newScenes = [...scriptData.scenes];
-                            newScenes[idx] = { ...newScenes[idx], text: e.target.value };
-                            setScriptData({
-                              ...scriptData,
-                              scenes: newScenes,
-                              fullScript: newScenes.map(s => s.text).join(' ')
-                            });
-                          }}
-                          rows={2}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '8px',
-                            color: '#f8fafc',
-                            fontSize: '0.92rem',
-                            padding: '8px 12px',
-                            marginBottom: '8px',
-                            fontFamily: 'inherit',
-                            resize: 'vertical'
-                          }}
-                        />
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#a855f7' }}>
+                              SCENE {scene.scene} • {scene.shotType}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              ~{scene.duration || 8}s
+                            </span>
+                          </div>
+                          
+                          <textarea
+                            value={scene.text}
+                            onChange={(e) => {
+                              const newScenes = [...scriptData.scenes];
+                              newScenes[idx] = { ...newScenes[idx], text: e.target.value };
+                              setScriptData({
+                                ...scriptData,
+                                scenes: newScenes,
+                                fullScript: newScenes.map(s => s.text).join(' ')
+                              });
+                            }}
+                            rows={3}
+                            placeholder="Voiceover narrative text..."
+                            style={{
+                              width: '100%',
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '8px',
+                              color: '#f8fafc',
+                              fontSize: '0.92rem',
+                              padding: '10px 12px',
+                              marginBottom: '8px',
+                              fontFamily: 'inherit',
+                              resize: 'vertical'
+                            }}
+                          />
 
-                        <div style={{
-                          fontSize: '0.78rem',
-                          color: '#06b6d4',
-                          background: 'rgba(6, 182, 212, 0.08)',
-                          padding: '6px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid rgba(6, 182, 212, 0.15)'
-                        }}>
-                          🎨 Visual Art Prompt: {scene.visualPrompt || selectedNiche?.defaultPrompt}
+                          <input
+                            type="text"
+                            value={scene.visualPrompt || ""}
+                            onChange={(e) => {
+                              const newScenes = [...scriptData.scenes];
+                              newScenes[idx] = { ...newScenes[idx], visualPrompt: e.target.value };
+                              setScriptData({ ...scriptData, scenes: newScenes });
+                            }}
+                            placeholder="AI visual prompt..."
+                            style={{
+                              width: '100%',
+                              background: 'rgba(6, 182, 212, 0.08)',
+                              border: '1px solid rgba(6, 182, 212, 0.2)',
+                              borderRadius: '8px',
+                              color: '#67e8f9',
+                              fontSize: '0.8rem',
+                              padding: '6px 10px'
+                            }}
+                          />
                         </div>
+
+                        {/* Scene Visual Preview */}
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <div style={{
+                            width: '130px',
+                            height: '190px',
+                            borderRadius: '10px',
+                            background: '#07090e',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            {scene.imageUrl ? (
+                              <img
+                                src={`${API_BASE}${scene.imageUrl}`}
+                                alt={`Scene ${scene.scene}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div style={{
+                                textAlign: 'center',
+                                padding: '10px',
+                                color: '#64748b',
+                                fontSize: '0.72rem'
+                              }}>
+                                🖼️ No Visual Yet
+                              </div>
+                            )}
+
+                            {generatingImgIdx === idx && (
+                              <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'rgba(0,0,0,0.7)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.75rem',
+                                color: '#c4b5fd'
+                              }}>
+                                Generating...
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => handleGenerateSceneImage(idx)}
+                            disabled={generatingImgIdx === idx}
+                            className="btn-secondary"
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '0.72rem',
+                              width: '130px',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <Sparkles size={12} /> {scene.imageUrl ? "Refresh Art" : "Create Art"}
+                          </button>
+                        </div>
+
                       </div>
                     ))}
                   </div>

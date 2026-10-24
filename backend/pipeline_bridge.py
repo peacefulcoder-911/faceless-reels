@@ -195,7 +195,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{style['font_name']},{style['font_size']},{style['primary_color']},{style['highlight_color']},{style['outline_color']}&H80000000,1,0,0,0,100,100,0,0,1,10,4,5,60,60,960,1
+Style: Default,{style['font_name']},{style['font_size']},{style['primary_color']},{style['highlight_color']},{style['outline_color']},&H80000000,1,0,0,0,100,100,0,0,1,8,4,5,60,60,960,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -228,6 +228,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     return output_ass_path
 
+def get_audio_duration_seconds(audio_path: str) -> float:
+    try:
+        cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        dur = float(res.stdout.strip())
+        return dur if dur > 0 else 35.0
+    except Exception:
+        return 35.0
+
 def assemble_reel_engine(
     audio_path: str,
     subtitles_path: str,
@@ -241,24 +250,32 @@ def assemble_reel_engine(
     # 1. Guarantee scene definitions exist
     if not scenes or len(scenes) == 0:
         scenes = [
-            {"scene": 1, "duration": 5, "shotType": "Extreme Closeup"},
-            {"scene": 2, "duration": 10, "shotType": "Wide Cinematic"},
-            {"scene": 3, "duration": 12, "shotType": "Medium Tracking"},
-            {"scene": 4, "duration": 8, "shotType": "Climax Reveal"}
+            {"scene": 1, "duration": 8, "shotType": "Extreme Closeup"},
+            {"scene": 2, "duration": 12, "shotType": "Wide Cinematic"},
+            {"scene": 3, "duration": 14, "shotType": "Medium Tracking"},
+            {"scene": 4, "duration": 10, "shotType": "Climax Reveal"}
         ]
 
-    # 2. Compile dynamic vertical Ken Burns video track tailored to the niche
+    # 2. Measure actual audio duration so video track matches 100%
+    audio_dur = get_audio_duration_seconds(audio_path)
+
+    # 3. Compile dynamic vertical Ken Burns video track tailored to the niche and duration
     from backend.scene_visualizer import compile_scenes_to_video_track
     video_track_path = str(TEMP_DIR / f"track_{uuid.uuid4().hex[:6]}.mp4")
-    base_video = compile_scenes_to_video_track(scenes, niche, video_track_path)
+    base_video = compile_scenes_to_video_track(
+        scenes=scenes,
+        niche=niche,
+        output_track_path=video_track_path,
+        target_total_duration=audio_dur
+    )
 
-    # 3. Mux with voiceover audio and burn-in styled ASS subtitles
+    # 4. Mux with voiceover audio and burn-in styled ASS subtitles
     if base_video and os.path.exists(base_video):
         cmd = [
             "ffmpeg", "-y",
             "-i", base_video,
             "-i", audio_path,
-            "-vf", f"subtitles={subtitles_path}:force_style='Alignment=5'",
+            "-vf", f"subtitles={subtitles_path}",
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-c:a", "aac",
@@ -270,6 +287,6 @@ def assemble_reel_engine(
         if res.returncode == 0 and os.path.exists(output_mp4_path):
             return output_mp4_path
         else:
-            print("FFmpeg subtitles transcode note:", res.stderr[:200])
+            print("FFmpeg subtitles transcode note:", res.stderr[:300])
 
     return output_mp4_path
