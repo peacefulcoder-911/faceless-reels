@@ -314,7 +314,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     await asyncio.sleep(1)
 
     # Completed
-    video_filename = os.path.basename(final_output_mp4) if os.path.exists(final_output_mp4) else "cinema_xray_cap_mjolnir_worthy.mp4"
+    video_filename = os.path.basename(final_output_mp4)
     job["status"] = "completed"
     job["progress"] = 100
     job["stage"] = "finished"

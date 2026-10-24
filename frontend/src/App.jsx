@@ -96,9 +96,6 @@ export default function App() {
       .then(res => res.json())
       .then(data => {
         setVideos(data.videos || []);
-        if (data.videos && data.videos.length > 0) {
-          setSelectedVideoToPlay(data.videos[0]);
-        }
       })
       .catch(err => console.log("Videos err:", err));
 
@@ -121,9 +118,14 @@ export default function App() {
             setIsGeneratingVideo(false);
             if (updatedJob.videoUrl) {
               setSelectedVideoToPlay({
-                url: updatedJob.videoUrl,
+                url: `${updatedJob.videoUrl}?v=${Date.now()}`,
                 title: `Faceless Reel: ${updatedJob.topic}`
               });
+              // Refresh video library list
+              fetch(`${API_BASE}/api/videos`)
+                .then(r => r.json())
+                .then(d => setVideos(d.videos || []))
+                .catch(() => {});
             }
           }
         })
@@ -182,6 +184,8 @@ export default function App() {
   // Trigger Video Assembly Job
   const handleStartVideoJob = async () => {
     setIsGeneratingVideo(true);
+    setSelectedVideoToPlay(null);
+    setPublishSuccess(false);
     try {
       const res = await fetch(`${API_BASE}/api/create-video`, {
         method: 'POST',
@@ -1141,6 +1145,7 @@ export default function App() {
                   {/* If user has selected video to play, stream it */}
                   {selectedVideoToPlay?.url ? (
                     <video
+                      key={selectedVideoToPlay.url}
                       src={`${API_BASE}${selectedVideoToPlay.url}`}
                       controls
                       autoPlay
