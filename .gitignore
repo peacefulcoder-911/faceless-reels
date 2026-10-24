@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Outputs
+output/final_video/*.mp4
+output/final_long_video/*.mp4
+output/clips/*.mp4
+output/temp/
+*.mp4
+*.wav
+
+# Secrets & OS
+.env
+.DS_Store
+config/*.json
+!config/*.json.example
+*.json.secret

@@ -1,0 +1,11 @@
+// Jenkins automation pipeline structure
+pipeline {
+    agent any
+    stages {
+        stage('Setup') {
+            steps {
+                echo 'Setting up environment'
+            }
+        }
+    }
+}
