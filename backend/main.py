@@ -224,6 +224,7 @@ class VideoCreationRequest(BaseModel):
     bgmMood: str = "cinematic_suspense"
     autoPublish: bool = False
     channels: List[str] = []
+    scenes: Optional[List[Dict[str, Any]]] = None
 
 @app.get("/api/health")
 def health_check():
@@ -307,9 +308,9 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stageLabel"] = "Mixing Audio, Subtitles & 9:16 Vertical Video Assembly"
     job["progress"] = 90
     job["updatedAt"] = datetime.utcnow().isoformat()
-    jobs[job_id] = job
-    save_jobs(jobs)
-    assemble_reel_engine(audio_path, subtitles_path, final_output_mp4)
+    scenes = payload.get("scenes", [])
+    niche = payload.get("niche", "biblical")
+    assemble_reel_engine(audio_path, subtitles_path, final_output_mp4, scenes=scenes, niche=niche)
     await asyncio.sleep(1)
 
     # Completed

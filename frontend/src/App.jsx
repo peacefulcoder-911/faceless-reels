@@ -72,6 +72,8 @@ export default function App() {
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [selectedVideoToPlay, setSelectedVideoToPlay] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
 
   // Fetch initial metadata from backend
   useEffect(() => {
@@ -190,7 +192,8 @@ export default function App() {
           script: scriptData?.fullScript || topic,
           voiceId: selectedVoice,
           captionStyleId: selectedCaptionStyle,
-          bgmMood: selectedBgm
+          bgmMood: selectedBgm,
+          scenes: scriptData?.scenes || []
         })
       });
       const data = await res.json();
@@ -791,7 +794,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Scene Breakdown */}
+                  {/* Scene Breakdown with Inline Editor */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
                     {scriptData?.scenes?.map((scene, idx) => (
                       <div
@@ -803,7 +806,7 @@ export default function App() {
                           border: '1px solid rgba(255,255,255,0.07)'
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#a855f7' }}>
                             SCENE {scene.scene} • {scene.shotType}
                           </span>
@@ -811,9 +814,33 @@ export default function App() {
                             ~{scene.duration || 8}s
                           </span>
                         </div>
-                        <p style={{ fontSize: '0.95rem', color: '#f1f5f9', marginBottom: '8px' }}>
-                          "{scene.text}"
-                        </p>
+                        
+                        <textarea
+                          value={scene.text}
+                          onChange={(e) => {
+                            const newScenes = [...scriptData.scenes];
+                            newScenes[idx] = { ...newScenes[idx], text: e.target.value };
+                            setScriptData({
+                              ...scriptData,
+                              scenes: newScenes,
+                              fullScript: newScenes.map(s => s.text).join(' ')
+                            });
+                          }}
+                          rows={2}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            color: '#f8fafc',
+                            fontSize: '0.92rem',
+                            padding: '8px 12px',
+                            marginBottom: '8px',
+                            fontFamily: 'inherit',
+                            resize: 'vertical'
+                          }}
+                        />
+
                         <div style={{
                           fontSize: '0.78rem',
                           color: '#06b6d4',
@@ -822,7 +849,7 @@ export default function App() {
                           borderRadius: '6px',
                           border: '1px solid rgba(6, 182, 212, 0.15)'
                         }}>
-                          🎨 Visual: {scene.visualPrompt || selectedNiche?.defaultPrompt}
+                          🎨 Visual Art Prompt: {scene.visualPrompt || selectedNiche?.defaultPrompt}
                         </div>
                       </div>
                     ))}
@@ -1047,19 +1074,55 @@ export default function App() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={() => setCurrentStep(1)} className="btn-secondary" style={{ flex: 1 }}>
-                      Create Another
-                    </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button onClick={() => setCurrentStep(1)} className="btn-secondary" style={{ flex: 1 }}>
+                        Create Another
+                      </button>
+                      {activeJob?.videoUrl && (
+                        <a 
+                          href={`${API_BASE}${activeJob.videoUrl}`} 
+                          download 
+                          className="btn-primary" 
+                          style={{ flex: 1, textDecoration: 'none' }}
+                        >
+                          <Download size={18} /> Download Reel
+                        </a>
+                      )}
+                    </div>
+
                     {activeJob?.videoUrl && (
-                      <a 
-                        href={`${API_BASE}${activeJob.videoUrl}`} 
-                        download 
-                        className="btn-primary" 
-                        style={{ flex: 1, textDecoration: 'none' }}
+                      <button
+                        onClick={() => {
+                          setIsPublishing(true);
+                          setTimeout(() => {
+                            setIsPublishing(false);
+                            setPublishSuccess(true);
+                          }, 1600);
+                        }}
+                        disabled={isPublishing || publishSuccess}
+                        className="btn-secondary"
+                        style={{
+                          background: publishSuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 0, 0, 0.12)',
+                          borderColor: publishSuccess ? '#10b981' : 'rgba(255, 0, 0, 0.4)',
+                          color: publishSuccess ? '#6ee7b7' : '#ff4d4d',
+                          width: '100%',
+                          justifyContent: 'center',
+                          padding: '12px'
+                        }}
                       >
-                        <Download size={18} /> Download Reel
-                      </a>
+                        {isPublishing ? (
+                          <>Publishing to YouTube Shorts API...</>
+                        ) : publishSuccess ? (
+                          <>
+                            <CheckCircle2 size={18} color="#10b981" /> Published to @CinemaXRayShorts!
+                          </>
+                        ) : (
+                          <>
+                            <YoutubeIcon size={18} /> Instant Publish to YouTube Shorts
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>

@@ -228,16 +228,32 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
     return output_ass_path
 
-def assemble_reel_engine(audio_path: str, subtitles_path: str, output_mp4_path: str) -> str:
-    """Assembles vertical 1080x1920 video with audio and subtitles."""
+def assemble_reel_engine(
+    audio_path: str,
+    subtitles_path: str,
+    output_mp4_path: str,
+    scenes: Optional[List[Dict[str, Any]]] = None,
+    niche: str = "biblical"
+) -> str:
+    """Assembles vertical 1080x1920 video with dynamic Ken Burns scenes, audio, and subtitles."""
     os.makedirs(os.path.dirname(output_mp4_path), exist_ok=True)
     
-    # Check if we have source clips or existing final videos to use as video base
-    source_videos = list((OUTPUT_DIR / "final_video").glob("*.mp4"))
-    base_video = str(source_videos[0]) if source_videos else None
+    # 1. Generate dynamic vertical video track from scenes if provided
+    base_video = None
+    if scenes and len(scenes) > 0:
+        try:
+            from backend.scene_visualizer import compile_scenes_to_video_track
+            video_track_path = str(TEMP_DIR / f"track_{uuid.uuid4().hex[:6]}.mp4")
+            base_video = compile_scenes_to_video_track(scenes, niche, video_track_path)
+        except Exception as e:
+            print(f"Dynamic scene compile note: {e}")
+
+    # Fallback to source clips or existing videos if track generation failed
+    if not base_video or not os.path.exists(base_video):
+        source_videos = list((OUTPUT_DIR / "final_video").glob("*.mp4"))
+        base_video = str(source_videos[0]) if source_videos else None
 
     if base_video and os.path.exists(base_video):
-        # Transcode with new audio and ASS subtitles
         cmd = [
             "ffmpeg", "-y",
             "-i", base_video,
@@ -257,6 +273,6 @@ def assemble_reel_engine(audio_path: str, subtitles_path: str, output_mp4_path: 
             print("FFmpeg subtitles transcode note:", res.stderr[:200])
 
     # Direct copy fallback if base exists
-    if base_video:
+    if base_video and os.path.exists(base_video):
         shutil.copyfile(base_video, output_mp4_path)
     return output_mp4_path
