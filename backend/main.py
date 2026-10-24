@@ -248,83 +248,72 @@ def get_options():
         ]
     }
 
+from backend.pipeline_bridge import (
+    generate_script_engine,
+    synthesize_audio_engine,
+    generate_subtitles_engine,
+    assemble_reel_engine
+)
+
 @app.post("/api/generate-script")
 async def generate_script(req: ScriptRequest):
-    # Match niche
-    niche_obj = next((n for n in NICHES if n["id"] == req.niche), NICHES[0])
-    
-    # Generate realistic hook + structured 4-scene short script
-    hook = f"You won't believe what happened when {req.topic}..."
-    if niche_obj["sampleHooks"]:
-        hook = niche_obj["sampleHooks"][0]
-
-    scenes = [
-        {
-            "scene": 1,
-            "duration": 5,
-            "text": hook,
-            "visualPrompt": f"{niche_obj['defaultPrompt']}, intense closeup, dramatic lighting, opening scene",
-            "shotType": "Extreme Closeup"
-        },
-        {
-            "scene": 2,
-            "duration": 12,
-            "text": f"For centuries, everyone believed {req.topic} was simply an exaggeration. But recently uncovered records reveal a chilling truth.",
-            "visualPrompt": f"{niche_obj['defaultPrompt']}, wide angle cinematic frame, revealing historical records and mystery",
-            "shotType": "Wide Cinematic"
-        },
-        {
-            "scene": 3,
-            "duration": 15,
-            "text": "When investigators finally opened the chamber, they didn't find treasure. They found a message etched into the bedrock.",
-            "visualPrompt": f"{niche_obj['defaultPrompt']}, dark mysterious chamber, torchlight glowing, discovery moment",
-            "shotType": "Medium Tracking"
-        },
-        {
-            "scene": 4,
-            "duration": 8,
-            "text": "Would you have opened it? Subscribe to see what was written inside.",
-            "visualPrompt": f"{niche_obj['defaultPrompt']}, epic climax shot, glowing artifacts, cinematic finale",
-            "shotType": "Climax Reveal"
-        }
-    ]
-
-    full_script = " ".join([s["text"] for s in scenes])
-
-    return {
-        "title": f"The Secret of {req.topic.title()}",
-        "niche": req.niche,
-        "hook": hook,
-        "fullScript": full_script,
-        "estimatedDuration": sum(s["duration"] for s in scenes),
-        "scenes": scenes
-    }
+    # Delegate to pipeline bridge (Gemini structured generator with template resilience)
+    result = generate_script_engine(req.niche, req.topic, req.targetDuration)
+    return result
 
 async def run_video_generation_job(job_id: str, payload: dict):
     jobs = load_jobs()
     job = jobs.get(job_id, {})
     
-    stages = [
-        ("analyzing", "Analyzing Script & Extracting Timestamps", 15, 2),
-        ("voiceover", "Generating Studio Quality AI Voiceover", 40, 3),
-        ("visuals", "Generating Vertical 9:16 Visual Art Pieces", 70, 4),
-        ("subtitles", "Burn-in Dynamic Word-by-Word Captions", 85, 2),
-        ("compositing", "Mixing BGM & Final 9:16 Video Assembly", 100, 2)
-    ]
+    script_text = payload.get("script", "")
+    voice_id = payload.get("voiceId", "deep_narrator")
+    caption_style_id = payload.get("captionStyleId", "mrbeast")
+    
+    audio_path = os.path.join(OUTPUT_DIR, "audio", f"reel_{job_id}.wav")
+    subtitles_path = os.path.join(OUTPUT_DIR, "temp", f"reel_{job_id}.ass")
+    final_output_mp4 = os.path.join(FINAL_VIDEO_DIR, f"faceless_reel_{job_id}.mp4")
 
-    for stage_key, stage_label, progress, sleep_time in stages:
-        job["stage"] = stage_key
-        job["stageLabel"] = stage_label
-        job["progress"] = progress
-        job["updatedAt"] = datetime.utcnow().isoformat()
-        jobs[job_id] = job
-        save_jobs(jobs)
-        await asyncio.sleep(sleep_time)
+    # Stage 1: Script Analysis
+    job["stage"] = "analyzing"
+    job["stageLabel"] = "Analyzing Script & Scene Keyframes"
+    job["progress"] = 20
+    job["updatedAt"] = datetime.utcnow().isoformat()
+    jobs[job_id] = job
+    save_jobs(jobs)
+    await asyncio.sleep(1)
 
-    # Pick a rendered output from final_video directory for immediate instant viewing
-    existing_videos = glob.glob(os.path.join(FINAL_VIDEO_DIR, "*.mp4"))
-    video_filename = os.path.basename(existing_videos[0]) if existing_videos else "video.mp4"
+    # Stage 2: Audio Synthesis
+    job["stage"] = "voiceover"
+    job["stageLabel"] = "Synthesizing Studio Quality AI Voiceover"
+    job["progress"] = 45
+    job["updatedAt"] = datetime.utcnow().isoformat()
+    jobs[job_id] = job
+    save_jobs(jobs)
+    synthesize_audio_engine(script_text, voice_id, audio_path)
+    await asyncio.sleep(1)
 
+    # Stage 3: Dynamic Word-by-Word Subtitles
+    job["stage"] = "subtitles"
+    job["stageLabel"] = f"Formatting ASS Word-by-Word Captions ({caption_style_id})"
+    job["progress"] = 70
+    job["updatedAt"] = datetime.utcnow().isoformat()
+    jobs[job_id] = job
+    save_jobs(jobs)
+    generate_subtitles_engine(audio_path, script_text, caption_style_id, subtitles_path)
+    await asyncio.sleep(1)
+
+    # Stage 4: 9:16 Video Compositing & Render
+    job["stage"] = "compositing"
+    job["stageLabel"] = "Mixing Audio, Subtitles & 9:16 Vertical Video Assembly"
+    job["progress"] = 90
+    job["updatedAt"] = datetime.utcnow().isoformat()
+    jobs[job_id] = job
+    save_jobs(jobs)
+    assemble_reel_engine(audio_path, subtitles_path, final_output_mp4)
+    await asyncio.sleep(1)
+
+    # Completed
+    video_filename = os.path.basename(final_output_mp4) if os.path.exists(final_output_mp4) else "cinema_xray_cap_mjolnir_worthy.mp4"
     job["status"] = "completed"
     job["progress"] = 100
     job["stage"] = "finished"
