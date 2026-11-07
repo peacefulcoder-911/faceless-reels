@@ -1,10 +1,12 @@
-import streamlit as st
-import os
 import json
+import os
 import sys
-from pipeline.topic_generator import generate_topic_and_script
+
+import streamlit as st
+
 from pipeline.audio_generator import generate_audio
 from pipeline.metadata_generator import generate_metadata
+from pipeline.topic_generator import generate_topic_and_script
 
 # Ensure module path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -35,7 +37,7 @@ def run_pipeline(category=None):
             os.remove(audio_path)
         if os.path.exists(metadata_path):
             os.remove(metadata_path)
-            
+
         try:
             generate_topic_and_script(category=category)
         except Exception as e:
@@ -46,27 +48,27 @@ def run_pipeline(category=None):
         st.error("Pipeline failed: Script was not generated.")
         return False
 
-    with open(script_path, "r", encoding="utf-8") as f:
+    with open(script_path, encoding="utf-8") as f:
         script_text = f.read().strip()
-        
+
     if not script_text:
         st.error("Pipeline failed: Generated script is empty.")
         return False
-        
+
     with st.spinner("Generating YouTube Metadata..."):
         try:
             generate_metadata()
         except Exception as e:
             st.error(f"Metadata generation failed: {e}")
             return False
-        
+
     with st.spinner("Writing the script into audio..."):
         try:
             generate_audio(script_text, audio_path)
         except Exception as e:
             st.error(f"Audio generation failed: {e}")
             return False
-            
+
     return True
 
 # UI Layout
@@ -94,24 +96,24 @@ st.divider()
 if os.path.exists(topic_path) and os.path.exists(script_path):
     st.subheader("2. Results")
     try:
-        with open(topic_path, 'r') as f:
+        with open(topic_path) as f:
             topic_data = json.load(f)
-        
+
         st.markdown(f"**Movie/Scene:** {topic_data.get('movie_or_source', '')} - {topic_data.get('specific_scene_or_moment', '')}")
         st.markdown(f"**Concept:** {topic_data.get('concept', '')}")
         st.markdown(f"**Title:** {topic_data.get('working_title', '')}")
-        
-        with open(script_path, 'r') as f:
+
+        with open(script_path) as f:
             script_text = f.read()
-            
+
         st.text_area("Final Script:", script_text, height=200)
-        
+
         if os.path.exists(audio_path):
             st.audio(audio_path, format="audio/wav")
-            
+
         if os.path.exists(metadata_path):
             import csv
-            with open(metadata_path, 'r', encoding='utf-8') as f:
+            with open(metadata_path, encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 try:
                     row = next(reader)

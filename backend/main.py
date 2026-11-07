@@ -1,14 +1,22 @@
-import os
+import asyncio
 import glob
 import json
+import os
 import uuid
-import asyncio
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from backend.pipeline_bridge import (
+    assemble_reel_engine,
+    generate_script_engine,
+    generate_subtitles_engine,
+    synthesize_audio_engine,
+)
 
 app = FastAPI(title="FacelessReels Engine API", version="1.0.0")
 
@@ -41,7 +49,7 @@ JOBS_FILE = os.path.join(STATE_DIR, "active_jobs.json")
 def load_jobs():
     if os.path.exists(JOBS_FILE):
         try:
-            with open(JOBS_FILE, "r") as f:
+            with open(JOBS_FILE) as f:
                 return json.load(f)
         except Exception:
             return {}
@@ -217,7 +225,7 @@ class ScriptRequest(BaseModel):
     niche: str
     topic: str
     targetDuration: int = 45 # seconds
-    tone: Optional[str] = "suspenseful"
+    tone: str | None = "suspenseful"
 
 class VideoCreationRequest(BaseModel):
     niche: str
@@ -227,12 +235,12 @@ class VideoCreationRequest(BaseModel):
     captionStyleId: str
     bgmMood: str = "cinematic_suspense"
     autoPublish: bool = False
-    channels: List[str] = []
-    scenes: Optional[List[Dict[str, Any]]] = None
+    channels: list[str] = []
+    scenes: list[dict[str, Any]] | None = None
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/niches")
 def get_niches():
@@ -253,12 +261,7 @@ def get_options():
         ]
     }
 
-from backend.pipeline_bridge import (
-    generate_script_engine,
-    synthesize_audio_engine,
-    generate_subtitles_engine,
-    assemble_reel_engine
-)
+
 
 class SceneImageRequest(BaseModel):
     prompt: str
@@ -281,11 +284,11 @@ async def generate_script(req: ScriptRequest):
 async def run_video_generation_job(job_id: str, payload: dict):
     jobs = load_jobs()
     job = jobs.get(job_id, {})
-    
+
     script_text = payload.get("script", "")
     voice_id = payload.get("voiceId", "deep_narrator")
     caption_style_id = payload.get("captionStyleId", "mrbeast")
-    
+
     audio_path = os.path.join(OUTPUT_DIR, "audio", f"reel_{job_id}.wav")
     subtitles_path = os.path.join(OUTPUT_DIR, "temp", f"reel_{job_id}.ass")
     final_output_mp4 = os.path.join(FINAL_VIDEO_DIR, f"faceless_reel_{job_id}.mp4")
@@ -294,7 +297,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stage"] = "analyzing"
     job["stageLabel"] = "Analyzing Script & Scene Keyframes"
     job["progress"] = 20
-    job["updatedAt"] = datetime.utcnow().isoformat()
+    job["updatedAt"] = datetime.now(timezone.utc).isoformat()
     jobs[job_id] = job
     save_jobs(jobs)
     await asyncio.sleep(1)
@@ -303,7 +306,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stage"] = "voiceover"
     job["stageLabel"] = "Synthesizing Studio Quality AI Voiceover"
     job["progress"] = 45
-    job["updatedAt"] = datetime.utcnow().isoformat()
+    job["updatedAt"] = datetime.now(timezone.utc).isoformat()
     jobs[job_id] = job
     save_jobs(jobs)
     synthesize_audio_engine(script_text, voice_id, audio_path)
@@ -313,7 +316,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stage"] = "subtitles"
     job["stageLabel"] = f"Formatting ASS Word-by-Word Captions ({caption_style_id})"
     job["progress"] = 70
-    job["updatedAt"] = datetime.utcnow().isoformat()
+    job["updatedAt"] = datetime.now(timezone.utc).isoformat()
     jobs[job_id] = job
     save_jobs(jobs)
     generate_subtitles_engine(audio_path, script_text, caption_style_id, subtitles_path)
@@ -323,7 +326,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stage"] = "compositing"
     job["stageLabel"] = "Mixing Audio, Subtitles & 9:16 Vertical Video Assembly"
     job["progress"] = 90
-    job["updatedAt"] = datetime.utcnow().isoformat()
+    job["updatedAt"] = datetime.now(timezone.utc).isoformat()
     scenes = payload.get("scenes", [])
     niche = payload.get("niche", "biblical")
     assemble_reel_engine(audio_path, subtitles_path, final_output_mp4, scenes=scenes, niche=niche)
@@ -337,7 +340,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
     job["stageLabel"] = "Video Ready to Download & Post"
     job["videoUrl"] = f"/videos/{video_filename}"
     job["thumbnailUrl"] = "/videos/thumbnail.jpg"
-    job["completedAt"] = datetime.utcnow().isoformat()
+    job["completedAt"] = datetime.now(timezone.utc).isoformat()
     jobs[job_id] = job
     save_jobs(jobs)
 
@@ -345,7 +348,7 @@ async def run_video_generation_job(job_id: str, payload: dict):
 async def create_video(req: VideoCreationRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())[:8]
     jobs = load_jobs()
-    
+
     new_job = {
         "id": job_id,
         "niche": req.niche,
@@ -358,7 +361,7 @@ async def create_video(req: VideoCreationRequest, background_tasks: BackgroundTa
         "progress": 5,
         "stage": "queued",
         "stageLabel": "Job Queued in Video Engine",
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "videoUrl": None
     }
     jobs[job_id] = new_job

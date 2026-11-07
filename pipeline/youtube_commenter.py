@@ -4,17 +4,14 @@ Compiles high-retention pinned discussion comments, community prompts, and funne
 and publishes them to YouTube videos via YouTube Data API v3.
 """
 
-import os
-import sys
 import json
-import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google_auth_oauthlib.flow import InstalledAppFlow
+from typing import Any
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = REPO_ROOT / "config"
@@ -96,7 +93,7 @@ def get_comment_service(client_secret_path=None, token_path=None):
     return build("youtube", "v3", credentials=creds)
 
 
-def generate_curiosity_comment(movie_name: str, topic_summary: str, question: Optional[str] = None) -> str:
+def generate_curiosity_comment(movie_name: str, topic_summary: str, question: str | None = None) -> str:
     """Formats high-CTR, pinned creator comment copy."""
     q_text = question if question else f"What hidden detail in {movie_name} blew your mind the most?"
     comment = (
@@ -108,15 +105,15 @@ def generate_curiosity_comment(movie_name: str, topic_summary: str, question: Op
     return comment
 
 
-def post_top_level_comment(video_id: str, comment_text: str, service=None) -> Dict[str, Any]:
+def post_top_level_comment(video_id: str, comment_text: str, service=None) -> dict[str, Any]:
     """
     Publishes a top-level creator comment on a YouTube video.
-    
+
     Args:
         video_id (str): 11-character YouTube video ID.
         comment_text (str): Full text of the comment.
         service (optional): Authorized googleapiclient service.
-    
+
     Returns:
         dict: Comment ID, publication status, and video ID.
     """

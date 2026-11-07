@@ -13,17 +13,17 @@ Strict automated quality inspection using ffprobe & Pillow before YouTube publis
   - Thumbnail resolution & format match
 """
 
-import os
 import json
 import subprocess
 from pathlib import Path
-from typing import Union, Optional, Tuple, Dict, Any
+from typing import Any, Union
+
 from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def find_associated_voiceover(video_path: Path) -> Optional[Path]:
+def find_associated_voiceover(video_path: Path) -> Path | None:
     """Finds matching voiceover audio in output/audio/ by job slug."""
     stem = video_path.stem.replace("_8k", "").replace("_1080p", "").replace("_final", "").replace("cinema_xray_", "")
     audio_dir = REPO_ROOT / "output" / "audio"
@@ -37,7 +37,7 @@ def find_associated_voiceover(video_path: Path) -> Optional[Path]:
     return None
 
 
-def find_associated_subtitles(video_path: Path) -> Optional[Path]:
+def find_associated_subtitles(video_path: Path) -> Path | None:
     """Finds matching subtitles in output/script/ or output/temp/ by job slug."""
     stem = video_path.stem.replace("_8k", "").replace("_1080p", "").replace("_final", "").replace("cinema_xray_", "")
     candidates = [
@@ -50,11 +50,11 @@ def find_associated_subtitles(video_path: Path) -> Optional[Path]:
     return None
 
 
-def extract_last_subtitle_timestamp(sub_path: Path) -> Optional[float]:
+def extract_last_subtitle_timestamp(sub_path: Path) -> float | None:
     """Extracts the end timestamp of the final spoken subtitle event."""
     try:
         if sub_path.suffix == ".json":
-            with open(sub_path, "r", encoding="utf-8") as f:
+            with open(sub_path, encoding="utf-8") as f:
                 data = json.load(f)
             cards = data.get("cards", [])
             if cards:
@@ -62,7 +62,7 @@ def extract_last_subtitle_timestamp(sub_path: Path) -> Optional[float]:
         elif sub_path.suffix == ".ass":
             import re
             last_end = 0.0
-            with open(sub_path, "r", encoding="utf-8") as f:
+            with open(sub_path, encoding="utf-8") as f:
                 for line in f:
                     if line.startswith("Dialogue:"):
                         parts = line.split(",", 9)
@@ -83,16 +83,16 @@ def extract_last_subtitle_timestamp(sub_path: Path) -> Optional[float]:
 
 def inspect_final_render(
     video_path: Union[str, Path],
-    thumbnail_path: Optional[Union[str, Path]] = None,
+    thumbnail_path: Union[str, Path] | None = None,
     video_format: str = "SHORT_45_SEC",
-    voiceover_path: Optional[Union[str, Path]] = None,
-    subtitles_path: Optional[Union[str, Path]] = None,
+    voiceover_path: Union[str, Path] | None = None,
+    subtitles_path: Union[str, Path] | None = None,
     dry_run: bool = False
-) -> Tuple[bool, Union[Dict[str, Any], str]]:
+) -> tuple[bool, Union[dict[str, Any], str]]:
     """
     Deterministically inspects the final rendered video and custom thumbnail before publishing.
     Performs 10 comprehensive QA checks to guarantee zero amputation, cutoff, or desync errors.
-    
+
     Returns:
       (True, diagnostics_dict) if all checks pass.
       (False, error_reason_string) if any check fails.

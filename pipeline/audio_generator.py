@@ -7,12 +7,13 @@ Supports:
 Mastered via FFmpeg EBU R128 Loudness Normalization (I=-14 LUFS, TP=-1.5 dB, LRA=11).
 """
 
-import os
-import wave
 import json
+import os
 import subprocess
+import wave
 from pathlib import Path
-from typing import Union, Dict, Any, List
+from typing import Any, Union
+
 from google import genai
 from google.genai import types
 
@@ -31,7 +32,9 @@ _load_env()
 
 
 def _get_api_client():
-    api_key = os.environ.get("GEMINI_API_KEY", "AIzaSyDStjE_IOWgo7NWUSqrxHi3KBki2Rfyk0k")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable is not set. Please export GEMINI_API_KEY or configure .env.")
     return genai.Client(api_key=api_key)
 
 
@@ -46,7 +49,9 @@ ELEVENLABS_VOICES = {
 def _synthesize_elevenlabs_tts(script_text: str, temp_wav_path: str, voice_name: str = "brian") -> None:
     """Synthesizes audio using ElevenLabs REST API and converts to 24kHz mono PCM WAV."""
     import requests
-    api_key = os.environ.get("ELEVENLABS_API_KEY", "sk_5bee36c5d62728dc6c787af78d15981d7112dce3882a1d74")
+    api_key = os.environ.get("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise ValueError("ELEVENLABS_API_KEY environment variable is not set. Please export ELEVENLABS_API_KEY or configure .env.")
     voice_id = ELEVENLABS_VOICES.get(voice_name.lower(), voice_name)
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     payload = {
@@ -67,12 +72,12 @@ def _synthesize_elevenlabs_tts(script_text: str, temp_wav_path: str, voice_name:
     res = requests.post(url, json=payload, headers=headers)
     if res.status_code != 200:
         raise RuntimeError(f"ElevenLabs API failed ({res.status_code}): {res.text}")
-    
+
     os.makedirs(os.path.dirname(temp_wav_path), exist_ok=True)
     temp_mp3 = temp_wav_path + ".temp.mp3"
     with open(temp_mp3, "wb") as f:
         f.write(res.content)
-    
+
     # Convert MP3 to 24kHz mono PCM WAV
     subprocess.run([
         "ffmpeg", "-y", "-v", "quiet",
@@ -174,7 +179,7 @@ def verify_audio_file(audio_path: str, video_format: str = "SHORT_45_SEC") -> fl
         "-of", "default=noprint_wrappers=1:nokey=1",
         audio_path
     ]
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
     dur = float(res.stdout.strip())
 
     if video_format == "SHORT_45_SEC":
@@ -188,7 +193,7 @@ def verify_audio_file(audio_path: str, video_format: str = "SHORT_45_SEC") -> fl
 
 
 def generate_achird_audio(
-    script_input: Union[str, Path, Dict[str, Any]],
+    script_input: Union[str, Path, dict[str, Any]],
     output_path: str,
     video_format: str = "SHORT_45_SEC",
     provider: str = None,
@@ -207,7 +212,7 @@ def generate_achird_audio(
     # Detect if script_input is a manifest path or manifest dictionary
     manifest_data = None
     if isinstance(script_input, (str, Path)) and str(script_input).endswith(".json") and os.path.exists(str(script_input)):
-        with open(str(script_input), "r", encoding="utf-8") as f:
+        with open(str(script_input), encoding="utf-8") as f:
             manifest_data = json.load(f)
     elif isinstance(script_input, dict) and "beats" in script_input:
         manifest_data = script_input
@@ -246,7 +251,7 @@ def generate_achird_audio(
     else:
         beats = manifest_data.get("beats", [])
         # Group beats by chapter_num
-        chapters_dict: Dict[int, List[str]] = {}
+        chapters_dict: dict[int, list[str]] = {}
         for b in beats:
             c_num = b.get("chapter_num", 1)
             chapters_dict.setdefault(c_num, []).append(b["narration_text"].strip())
@@ -310,7 +315,7 @@ if __name__ == "__main__":
     print(f"Short test duration: {dur:.2f}s")
 
 def generate_elevenlabs_audio(
-    script_input: Union[str, Path, Dict[str, Any]],
+    script_input: Union[str, Path, dict[str, Any]],
     output_path: str,
     voice_name: str = "brian",
     video_format: str = "SHORT_45_SEC"

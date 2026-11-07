@@ -7,11 +7,12 @@ for both Long-Form (1280x720, 16:9) and Shorts (1080x1920, 9:16).
 
 import os
 import re
+from pathlib import Path
+from typing import Union
+
 import cv2
 import numpy as np
-from pathlib import Path
-from typing import Union, Optional, Tuple, List
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = REPO_ROOT / "output"
@@ -68,7 +69,7 @@ def _get_mono_font(size: int) -> ImageFont.FreeTypeFont:
 def extract_best_keyframe(
     video_path: Union[str, Path],
     start_sec: float = 0.0,
-    end_sec: Optional[float] = None,
+    end_sec: float | None = None,
     sample_count: int = 15
 ) -> np.ndarray:
     """
@@ -76,7 +77,7 @@ def extract_best_keyframe(
       1. Laplacian variance (sharpness / focus)
       2. Brightness penalties (never pick dark blackouts or overexposed white flash cuts)
       3. Contrast score (avoids flat, low-detail frames)
-    
+
     Returns the highest-scoring frame as an RGB numpy array.
     """
     video_path = str(video_path)
@@ -110,13 +111,13 @@ def extract_best_keyframe(
             continue
 
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        
+
         # 1. Sharpness: Laplacian variance
         laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-        
+
         # 2. Brightness distribution
         mean_brightness = float(np.mean(gray))
-        
+
         # 3. Contrast: Standard deviation of pixel intensities
         contrast_std = float(np.std(gray))
 
@@ -186,7 +187,7 @@ def _draw_hud_brackets(
     margin: int = 36,
     arm_len: int = 50,
     line_w: int = 3,
-    color: Tuple[int, int, int, int] = (255, 229, 0, 180)
+    color: tuple[int, int, int, int] = (255, 229, 0, 180)
 ):
     """Draws Cinema X-Ray signature HUD corner framing brackets."""
     # Top-Left
@@ -201,7 +202,7 @@ def _draw_hud_brackets(
 
 def _draw_focal_ring(
     draw: ImageDraw.ImageDraw,
-    box: Tuple[int, int, int, int],
+    box: tuple[int, int, int, int],
     hud_font: ImageFont.FreeTypeFont
 ):
     """Draws a subtle glowing gold analytical focus reticle around the focal region."""
@@ -237,9 +238,9 @@ def apply_cinema_xray_theme(
     hook_text: str,
     highlight_word: str = "",
     video_format: str = "LONG_5_6_MIN",
-    output_path: Optional[Union[str, Path]] = None,
+    output_path: Union[str, Path] | None = None,
     job_slug: str = "cinema_xray",
-    focal_box: Optional[Tuple[int, int, int, int]] = None
+    focal_box: tuple[int, int, int, int] | None = None
 ) -> str:
     """
     Applies the unified Cinema X-Ray brand styling to a keyframe:
@@ -382,12 +383,12 @@ def apply_cinema_xray_theme(
     if video_format == "LONG_5_6_MIN":
         font_size = 78
         impact_font = _get_font(font_size)
-        
+
         # Test if words fit on a single line or 2 lines
         full_line = " ".join(clean_words)
         test_box = draw_final.textbbox((0, 0), full_line, font=impact_font, stroke_width=8)
         text_w = test_box[2] - test_box[0]
-        
+
         if text_w > (target_w - 180) and len(clean_words) >= 3:
             # Split into 2 lines
             mid = len(clean_words) // 2
@@ -404,7 +405,7 @@ def apply_cinema_xray_theme(
         # Shorts (9:16): Large stacked typography in upper-middle zone
         font_size = 108
         impact_font = _get_font(font_size)
-        
+
         if len(clean_words) >= 3:
             mid = (len(clean_words) + 1) // 2
             lines = [clean_words[:mid], clean_words[mid:]]
@@ -437,7 +438,7 @@ def apply_cinema_xray_theme(
         # Center horizontally
         curr_x = (target_w - total_line_w) // 2
 
-        for idx, (w, w_width) in enumerate(word_metrics):
+        for _idx, (w, w_width) in enumerate(word_metrics):
             # Check highlight word match
             is_highlight = (clean_highlight and (clean_highlight == w or clean_highlight in w))
             word_color = COLOR_GOLD if is_highlight else COLOR_WHITE

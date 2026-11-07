@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faceless-reels"
+version = "1.0.0"
+description = "Autonomous AI-powered video automation framework for scripting, voicing, rendering, and publishing vertical reels and video essays."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "FacelessReels Maintainers" }
+]
+keywords = [
+    "ai",
+    "video-generation",
+    "faceless-videos",
+    "shorts",
+    "reels",
+    "youtube-automation",
+    "ffmpeg",
+    "gemini",
+    "whisper"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "pydantic>=2.9.0",
+    "requests>=2.32.0",
+    "faster-whisper>=1.0.0",
+    "google-genai>=0.1.0",
+    "google-auth>=2.30.0",
+    "PyYAML>=6.0.1",
+    "tqdm>=4.66.0",
+    "Pillow>=10.0.0",
+    "opencv-python-headless>=4.9.0.80",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+faceless-reels = "backend.main:app"
+
+[tool.setuptools.packages.find]
+include = ["backend*", "pipeline*", "automation*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "backend"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-v --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "B008", # do not perform function calls in argument defaults (needed for FastAPI Depends)
+    "B904", # raise from None inside except blocks
+    "UP007", # union syntax modernizations that might break older py3.10 runtimes
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend", "pipeline", "automation"]

@@ -11,12 +11,12 @@ Features:
 Strictly isolated from Shorts directories.
 """
 
+import json
 import os
 import re
-import json
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -54,7 +54,7 @@ def render_widescreen_xray_clip(
     duration: float,
     output_clip_path: str,
     camera_motion: str = "STATIC",
-    chapter_title: Optional[str] = None,
+    chapter_title: str | None = None,
     fps: int = 30
 ) -> str:
     """
@@ -126,11 +126,11 @@ def render_widescreen_xray_clip(
 
 
 def assemble_long_form_video(
-    clip_paths: List[str],
+    clip_paths: list[str],
     voiceover_wav_path: str,
     ass_subtitle_path: str,
     output_1080p_path: str,
-    temp_dir: Optional[str] = None
+    temp_dir: str | None = None
 ) -> str:
     """
     Concatenates long-form scene clips, mixes 5–6 min procedural tension score (-22dB below voice),
@@ -191,7 +191,7 @@ def assemble_long_form_video(
     print(f"[Long Compositor] Burning widescreen subtitles & assembling 1080p master ({target_master_dur:.1f}s)...")
     # Fail-Safe Video Duration Alignment (Guarantees zero truncation)
     raw_video_dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(raw_video)]).decode().strip())
-    
+
     vf_chain = []
     if raw_video_dur < target_master_dur:
         pad_needed = round(target_master_dur - raw_video_dur + 0.10, 2)
@@ -225,7 +225,7 @@ def export_long_form_4k_uhd(input_1080p_path: str, output_4k_path: str) -> str:
     """
     out_4k = Path(output_4k_path)
     out_4k.parent.mkdir(parents=True, exist_ok=True)
-    print(f"[Long Compositor] Upscaling to horizontal 4K UHD (3840x2160)...")
+    print("[Long Compositor] Upscaling to horizontal 4K UHD (3840x2160)...")
 
     in_dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(input_1080p_path)]).decode().strip())
     cmd = [
@@ -262,7 +262,7 @@ def export_long_form_4k_uhd(input_1080p_path: str, output_4k_path: str) -> str:
     return str(out_4k)
 
 
-def gatekeeper_verify_long_video(video_path: str, expected_duration: float) -> Dict[str, Any]:
+def gatekeeper_verify_long_video(video_path: str, expected_duration: float) -> dict[str, Any]:
     """
     Verifies video resolution (1920x1080 or 3840x2160), 16:9 aspect ratio,
     presence of audio stream, and duration within ±0.5s.
@@ -273,7 +273,7 @@ def gatekeeper_verify_long_video(video_path: str, expected_duration: float) -> D
         "-show_format", "-show_streams",
         str(video_path)
     ]
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
     meta = json.loads(res.stdout)
 
     v_stream = next((s for s in meta.get("streams", []) if s.get("codec_type") == "video"), None)

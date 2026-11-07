@@ -4,17 +4,18 @@ Zero-Manual-Input Topic Engine using SQLite state memory (WAL mode) and Gemini S
 Plans daily batches: 1 Long-Form (5-6 min) + 3 Shorts (2 Funnel + 1 Bridge).
 """
 
+import json
 import os
 import re
 import sqlite3
-import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from typing import Any, Literal
+
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_DIR = REPO_ROOT / "output" / "state"
@@ -92,7 +93,7 @@ def _get_api_client():
                     api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
                     break
     if not api_key:
-        api_key = "AIzaSyDStjE_IOWgo7NWUSqrxHi3KBki2Rfyk0k"
+        raise ValueError("GEMINI_API_KEY environment variable is not set. Please export GEMINI_API_KEY or configure .env.")
     return genai.Client(api_key=api_key)
 
 
@@ -117,7 +118,7 @@ def init_db(db_path: Path = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
-def get_production_history(db_path: Path = DB_PATH) -> Dict[str, Any]:
+def get_production_history(db_path: Path = DB_PATH) -> dict[str, Any]:
     """Retrieve past production history to prevent duplicate titles or angles."""
     conn = init_db(db_path)
     cursor = conn.cursor()
@@ -179,11 +180,11 @@ class DailyBatchPlan(BaseModel):
     short_2: PlannedJob
     short_3_bridge: PlannedJob
 
-    def all_jobs(self) -> List[PlannedJob]:
+    def all_jobs(self) -> list[PlannedJob]:
         return [self.long_form, self.short_1, self.short_2, self.short_3_bridge]
 
 
-def scan_available_projects(projects_dir: Path = REPO_ROOT / "projects") -> List[Dict[str, Any]]:
+def scan_available_projects(projects_dir: Path = REPO_ROOT / "projects") -> list[dict[str, Any]]:
     """Scan existing projects folder and match with known clusters."""
     available = []
     if projects_dir.exists():
@@ -222,7 +223,7 @@ def get_next_daily_batch(db_path: Path = DB_PATH) -> DailyBatchPlan:
     bridge_movies = active_cluster.get("bridge_movies", primary_movies)
 
     past_titles_list = list(history["titles"])[:15]
-    used_combos = [f"{m} + {l}" for m, l in list(history["movie_lens_combos"])[:15]]
+    used_combos = [f"{m} + {lens_name}" for m, lens_name in list(history["movie_lens_combos"])[:15]]
 
     system_prompt = f"""You are the Executive Content Director for 'Cinema X-Ray'.
 Your role is to autonomously architect the daily production plan for the channel.

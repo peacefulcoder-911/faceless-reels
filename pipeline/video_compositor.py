@@ -1,7 +1,8 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Union
+
 
 def get_media_duration(file_path: Union[str, Path]) -> float:
     """Accurately extracts media duration in seconds via ffprobe."""
@@ -18,10 +19,10 @@ def get_media_duration(file_path: Union[str, Path]) -> float:
         raise RuntimeError(f"Failed to probe duration of {file_path}: {e}")
 
 def harmonize_scene_cuts(
-    scene_cuts: List[Tuple[Union[str, Path], float, float, str]],
+    scene_cuts: list[tuple[Union[str, Path], float, float, str]],
     target_duration: float,
     min_buffer: float = 0.6
-) -> List[Tuple[Union[str, Path], float, float, str]]:
+) -> list[tuple[Union[str, Path], float, float, str]]:
     """
     Dynamically scales nominal cut durations so the total video footage perfectly matches
     the voiceover duration plus a clean breathing room buffer (default: +0.6s).
@@ -92,7 +93,7 @@ def render_70pct_scene_clip(input_video: str, start_sec: float, duration: float,
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     crop_filter = detect_letterbox_crop(input_video, sample_sec=start_sec + 1.0)
-    
+
     vf = (
         f"[0:v]{crop_filter}scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=45,eq=brightness=-0.05:contrast=1.1:saturation=1.3[bg];"
         f"[0:v]{crop_filter}scale=-1:1344,crop=1080:1344:(in_w-1080)/2:0[fg];"
@@ -124,7 +125,7 @@ def render_100pct_fullscreen_clip(input_video: str, start_sec: float, duration: 
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     crop_filter = detect_letterbox_crop(input_video, sample_sec=start_sec + 1.0)
-    
+
     crop_x = f"(in_w-1080)/2+{x_offset}" if x_offset != 0 else "(in_w-1080)/2"
     vf = f"[0:v]{crop_filter}scale=-1:1920,crop=1080:1920:{crop_x}:0,setsar=1"
 
@@ -192,7 +193,7 @@ def assemble_final_video(
         pad_needed = round(target_master_dur - raw_video_dur, 2)
         print(f"⚠️ Sliced clips ({raw_video_dur:.2f}s) shorter than voiceover ({audio_dur:.2f}s). Applying tpad hold (+{pad_needed:.2f}s) to guarantee zero audio cutoff.")
         vf_chain.append(f"tpad=stop_mode=clone:stop_duration={pad_needed}")
-    
+
     vf_chain.append(f"ass={ass_subtitle_path}")
     vf_filter = ",".join(vf_chain)
 
@@ -236,8 +237,8 @@ def assemble_final_video(
 def export_4k_uhd(input_mp4: str, output_4k_mp4: str):
     """Upscales 1080x1920 video to pristine 4K UHD (2160x3840) using hardware acceleration."""
     os.makedirs(os.path.dirname(output_4k_mp4), exist_ok=True)
-    print(f"🚀 Upscaling to 4K UHD (2160x3840)...")
-    
+    print("🚀 Upscaling to 4K UHD (2160x3840)...")
+
     cmd = [
         "ffmpeg", "-y",
         "-i", str(input_mp4),
@@ -261,6 +262,6 @@ def export_4k_uhd(input_mp4: str, output_4k_mp4: str):
             str(output_4k_mp4)
         ]
         subprocess.run(cmd_cpu, check=True)
-    
+
     print(f"🌟 4K UHD Cinema X-Ray Video: {output_4k_mp4}")
     return output_4k_mp4

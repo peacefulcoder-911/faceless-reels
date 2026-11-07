@@ -1,12 +1,10 @@
-import os
-import re
-import sys
 import json
-import uuid
+import os
 import shutil
 import subprocess
+import uuid
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = REPO_ROOT / "output"
@@ -49,12 +47,12 @@ CAPTION_STYLE_CONFIGS = {
     }
 }
 
-def generate_script_engine(niche: str, topic: str, duration: int = 45) -> Dict[str, Any]:
+def generate_script_engine(niche: str, topic: str, duration: int = 45) -> dict[str, Any]:
     """Generates structured 4-scene script with hook, duration, and visual prompts."""
     try:
-        from pipeline.script_generator import _get_api_client, _generate_with_resilience
-        from pydantic import BaseModel, Field
-        from google.genai import types
+        from pydantic import BaseModel
+
+        from pipeline.script_generator import _generate_with_resilience, _get_api_client
 
         class SceneBeat(BaseModel):
             scene: int
@@ -67,7 +65,7 @@ def generate_script_engine(niche: str, topic: str, duration: int = 45) -> Dict[s
             title: str
             hook: str
             full_script: str
-            scenes: List[SceneBeat]
+            scenes: list[SceneBeat]
 
         client = _get_api_client()
         prompt = (
@@ -83,7 +81,7 @@ def generate_script_engine(niche: str, topic: str, duration: int = 45) -> Dict[s
 
         resp_text = _generate_with_resilience(client, [prompt], ReelScript, temperature=0.3)
         data = json.loads(resp_text)
-        
+
         return {
             "title": data.get("title", f"The Secret of {topic}"),
             "niche": niche,
@@ -117,21 +115,21 @@ def generate_script_engine(niche: str, topic: str, duration: int = 45) -> Dict[s
                 "scene": 2,
                 "duration": 12,
                 "text": f"For centuries, everyone believed {topic} was an exaggeration. But ancient accounts reveal a chilling truth.",
-                "visualPrompt": f"Wide angle historical reveal, atmospheric lighting, mystery uncovering",
+                "visualPrompt": "Wide angle historical reveal, atmospheric lighting, mystery uncovering",
                 "shotType": "Wide Cinematic"
             },
             {
                 "scene": 3,
                 "duration": 15,
                 "text": "When investigators finally opened the deepest chamber, they found evidence that defied modern explanation.",
-                "visualPrompt": f"Mysterious chamber, glowing runes, torchlight illuminating hidden symbols",
+                "visualPrompt": "Mysterious chamber, glowing runes, torchlight illuminating hidden symbols",
                 "shotType": "Medium Tracking"
             },
             {
                 "scene": 4,
                 "duration": 8,
                 "text": "Would you have explored inside? Subscribe to see part two.",
-                "visualPrompt": f"Epic climax shot, atmospheric fog, glowing artifacts",
+                "visualPrompt": "Epic climax shot, atmospheric fog, glowing artifacts",
                 "shotType": "Climax Reveal"
             }
         ]
@@ -148,7 +146,7 @@ def synthesize_audio_engine(script_text: str, voice_name: str, output_wav_path: 
     """Synthesizes voiceover with EBU R128 loudness normalization."""
     os.makedirs(os.path.dirname(output_wav_path), exist_ok=True)
     try:
-        from pipeline.audio_generator import generate_elevenlabs_audio, generate_achird_audio
+        from pipeline.audio_generator import generate_achird_audio, generate_elevenlabs_audio
         # Map voice name to engine
         if "elevenlabs" in voice_name.lower() or voice_name in ["deep_narrator", "brian", "adam"]:
             voice_mapped = "brian" if "deep" in voice_name.lower() else "adam"
@@ -172,7 +170,7 @@ def synthesize_audio_engine(script_text: str, voice_name: str, output_wav_path: 
             if os.path.exists(aiff_temp):
                 os.remove(aiff_temp)
             return output_wav_path
-        
+
         # If say is not available, copy existing test audio
         existing_audios = list(AUDIO_DIR.glob("*.wav"))
         if existing_audios:
@@ -212,7 +210,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         chunk = words[i:i+chunk_size]
         start_sec = i * word_time
         end_sec = min(est_duration, (i + len(chunk)) * word_time)
-        
+
         start_m, start_s = divmod(start_sec, 60)
         end_m, end_s = divmod(end_sec, 60)
         start_str = f"0:{int(start_m):02d}:{start_s:05.2f}"
@@ -241,12 +239,12 @@ def assemble_reel_engine(
     audio_path: str,
     subtitles_path: str,
     output_mp4_path: str,
-    scenes: Optional[List[Dict[str, Any]]] = None,
+    scenes: list[dict[str, Any]] | None = None,
     niche: str = "biblical"
 ) -> str:
     """Assembles vertical 1080x1920 video with dynamic Ken Burns scenes, audio, and subtitles."""
     os.makedirs(os.path.dirname(output_mp4_path), exist_ok=True)
-    
+
     # 1. Guarantee scene definitions exist
     if not scenes or len(scenes) == 0:
         scenes = [

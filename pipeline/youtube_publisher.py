@@ -5,27 +5,26 @@ exact 00:00 chapter timestamps, entity search tags) via Gemini and handles
 resumable YouTube Data API v3 uploads with automatic thumbnail association.
 """
 
-import os
-import sys
-import time
 import json
+import os
 import re
-from pathlib import Path
-from typing import Union, Dict, Any, List, Optional
+import time
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field
+from pathlib import Path
+from typing import Any, Union
 
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
 
 # Optional YouTube API imports
 try:
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-    from googleapiclient.errors import HttpError
-    from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    from googleapiclient.http import MediaFileUpload
     YOUTUBE_API_AVAILABLE = True
 except ImportError:
     YOUTUBE_API_AVAILABLE = False
@@ -46,13 +45,13 @@ class YouTubePackage(BaseModel):
     """Complete Algorithmic YouTube Publishing Package."""
     optimized_title: str = Field(description="High-CTR curiosity-gap title under 52 characters.")
     seo_description: str = Field(description="Full SEO description including hook, chapters or funnel link, and entity hashtags.")
-    tags: List[str] = Field(description="Exactly 15 high-velocity search and entity tags under 450 total characters.")
+    tags: list[str] = Field(description="Exactly 15 high-velocity search and entity tags under 450 total characters.")
     category_id: str = Field(default="1", description="YouTube Category ID: '1' for Film & Animation, '24' for Entertainment")
     made_for_kids: bool = Field(default=False, description="Strictly False to allow comments and browse recommendation.")
     video_format: str = Field(default="LONG_5_6_MIN", description="LONG_5_6_MIN or SHORT_45_SEC")
     job_slug: str = Field(default="cinema_xray", description="Identifier slug")
-    chapter_timestamps: Optional[List[Dict[str, Any]]] = Field(default=None, description="Calculated chapter timestamps for Long-Form")
-    related_long_video_id: Optional[str] = Field(default=None, description="Linked Long-Form video ID for Shorts funnel")
+    chapter_timestamps: list[dict[str, Any]] | None = Field(default=None, description="Calculated chapter timestamps for Long-Form")
+    related_long_video_id: str | None = Field(default=None, description="Linked Long-Form video ID for Shorts funnel")
 
 
 def _get_api_client():
@@ -71,7 +70,7 @@ def _get_api_client():
     return genai.Client(api_key=api_key)
 
 
-def _calculate_long_form_chapters(manifest: Dict[str, Any]) -> List[Dict[str, str]]:
+def _calculate_long_form_chapters(manifest: dict[str, Any]) -> list[dict[str, str]]:
     """
     Auto-calculates exact 00:00 chapter timestamps mapped from the 5 chapters in manifest_json.
     Computes exact durations based on narration word counts proportional to target duration.
@@ -90,7 +89,7 @@ def _calculate_long_form_chapters(manifest: Dict[str, Any]) -> List[Dict[str, st
         ]
 
     # Count words per chapter from beats
-    chapter_words: Dict[int, int] = {i: 0 for i in range(1, len(chapters_raw) + 1)}
+    chapter_words: dict[int, int] = {i: 0 for i in range(1, len(chapters_raw) + 1)}
     for b in beats:
         c_num = b.get("chapter_num", 1)
         if c_num in chapter_words:
@@ -133,16 +132,16 @@ def _calculate_long_form_chapters(manifest: Dict[str, Any]) -> List[Dict[str, st
 
 
 def _fallback_metadata(
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     video_format: str,
-    related_long_video_id: Optional[str] = None
+    related_long_video_id: str | None = None
 ) -> YouTubePackage:
     """Deterministic, high-quality fallback generator when Gemini API is offline."""
     title_raw = manifest.get("title", "The Hidden Detail You Missed")
     movie = manifest.get("movie_name", "Cinema")
     cluster = manifest.get("cluster_name", "Masterpiece")
     lens = manifest.get("category_lens", "Film Analysis")
-    thesis = manifest.get("core_thesis", "An in-depth analytical breakdown.")
+    manifest.get("core_thesis", "An in-depth analytical breakdown.")
     job_slug = manifest.get("job_slug", "video")
 
     # Clean title < 52 chars
@@ -226,14 +225,14 @@ def _fallback_metadata(
 
 
 def generate_algorithmic_metadata(
-    manifest_json: Union[str, Path, Dict[str, Any]],
+    manifest_json: Union[str, Path, dict[str, Any]],
     video_format: str = "LONG_5_6_MIN",
-    related_long_video_id: Optional[str] = None
+    related_long_video_id: str | None = None
 ) -> YouTubePackage:
     """
     Uses Gemini (google-genai) to generate a complete YouTubePackage optimized
     for YouTube's Browse, Suggested, and Search algorithms.
-    
+
     Enforces:
       1. optimized_title: Curiosity-gap title under 52 characters (with #Shorts cleanly appended for Shorts).
       2. seo_description:
@@ -245,7 +244,7 @@ def generate_algorithmic_metadata(
       5. made_for_kids: Strictly False.
     """
     if isinstance(manifest_json, (str, Path)):
-        with open(str(manifest_json), "r", encoding="utf-8") as f:
+        with open(str(manifest_json), encoding="utf-8") as f:
             manifest = json.load(f)
     elif isinstance(manifest_json, dict):
         manifest = manifest_json
@@ -293,9 +292,9 @@ Strict Constraints:
 
     class MetadataDraft(BaseModel):
         optimized_title: str
-        hook_lines: List[str]
-        tags: List[str]
-        niche_hashtags: List[str]
+        hook_lines: list[str]
+        tags: list[str]
+        niche_hashtags: list[str]
 
     for model_name in models:
         try:
@@ -369,7 +368,7 @@ Strict Constraints:
     # 3. Enforce Tags Gatekeeper (15 tags, total chars < 450)
     raw_tags = package_data.get("tags", [])
     clean_tags = [t.strip() for t in raw_tags if t.strip()]
-    
+
     # Ensure 15 tags
     if len(clean_tags) < 15:
         defaults = [
@@ -446,7 +445,7 @@ def get_youtube_service(client_secret_path=None, token_path=None):
         if not creds or not creds.valid:
             if not secret_file:
                 raise FileNotFoundError(
-                    f"\n[YouTube Auth Error] client_secrets.json not found in config/ or credentials/."
+                    "\n[YouTube Auth Error] client_secrets.json not found in config/ or credentials/."
                 )
 
             print("\n[YouTube Auth] Opening browser for one-time YouTube Channel authorization...")
@@ -464,17 +463,17 @@ def get_youtube_service(client_secret_path=None, token_path=None):
 
 def upload_to_youtube(
     video_path: Union[str, Path],
-    thumbnail_path: Optional[Union[str, Path]],
+    thumbnail_path: Union[str, Path] | None,
     metadata_package: YouTubePackage,
-    publish_at_iso: Optional[str] = None,
-    dry_run: Optional[bool] = None,
-    client_secret_path: Optional[Union[str, Path]] = None,
-    token_path: Optional[Union[str, Path]] = None
-) -> Dict[str, Any]:
+    publish_at_iso: str | None = None,
+    dry_run: bool | None = None,
+    client_secret_path: Union[str, Path] | None = None,
+    token_path: Union[str, Path] | None = None
+) -> dict[str, Any]:
     """
     Uploads a video to YouTube using resumable chunked upload with exponential backoff retry.
     Associates the custom thumbnail upon completion.
-    
+
     In dry-run mode (DRY_RUN=True or dry_run=True):
       - Validates video file, thumbnail file, title length, tags, and category.
       - Compiles and writes the exact payload package to output/publish_packages/<job_slug>_package.json.
@@ -544,7 +543,7 @@ def upload_to_youtube(
 
     # Handle DRY RUN
     if dry_run:
-        print(f"\n🧪 [DRY RUN VALIDATION] YouTube Publication Package Compiled & Verified:")
+        print("\n🧪 [DRY RUN VALIDATION] YouTube Publication Package Compiled & Verified:")
         print(f"   Slug:           {job_slug}")
         print(f"   Title:          {metadata_package.optimized_title} ({len(metadata_package.optimized_title)} chars)")
         print(f"   Format:         {metadata_package.video_format}")
@@ -552,7 +551,7 @@ def upload_to_youtube(
         print(f"   Tags ({len(metadata_package.tags)}):    {', '.join(metadata_package.tags[:4])}... ({package_summary['total_tag_chars']} chars)")
         print(f"   Thumbnail:      {thumb_path_resolved} ({thumb_path_resolved.stat().st_size / 1024:.1f} KB)" if thumb_path_resolved and thumb_path_resolved.exists() else "   Thumbnail: None")
         print(f"   Package JSON:   {package_file}")
-        print(f"   Status:         ✅ VALIDATED READY FOR UPLOAD\n")
+        print("   Status:         ✅ VALIDATED READY FOR UPLOAD\n")
 
         return {
             "dry_run": True,
@@ -608,7 +607,7 @@ def upload_to_youtube(
 
     video_id = response.get("id")
     video_url = f"https://youtu.be/{video_id}"
-    print(f"\n🎉 Video Successfully Uploaded!")
+    print("\n🎉 Video Successfully Uploaded!")
     print(f"   Video ID:  {video_id}")
     print(f"   Watch URL: {video_url}")
 

@@ -5,13 +5,11 @@ using Lanczos multi-stage resampling and AMD FidelityFX Contrast Adaptive Sharpe
 Hardware-accelerated via Apple Silicon VideoToolbox HEVC (H.265) with 80+ Mbps bitrates.
 """
 
-import os
-import sys
-import subprocess
 import json
+import subprocess
 import time
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -35,7 +33,7 @@ RESOLUTIONS = {
 }
 
 
-def get_video_metadata(video_path: Path) -> Dict[str, Any]:
+def get_video_metadata(video_path: Path) -> dict[str, Any]:
     """Inspects video stream dimensions, duration, and codec using ffprobe."""
     cmd = [
         "ffprobe", "-v", "error",
@@ -57,21 +55,21 @@ def get_video_metadata(video_path: Path) -> Dict[str, Any]:
 
 def upgrade_to_super_resolution(
     input_video: str,
-    output_video: Optional[str] = None,
+    output_video: str | None = None,
     target_tier: str = "8K",
-    sharpness: Optional[float] = None,
-    bitrate: Optional[str] = None
-) -> Tuple[str, Dict[str, Any]]:
+    sharpness: float | None = None,
+    bitrate: str | None = None
+) -> tuple[str, dict[str, Any]]:
     """
     Renders video to pristine 8K or 4K Super-Resolution.
-    
+
     Args:
         input_video (str): Path to master 1080p or 4K video.
         output_video (str, optional): Target output path. Auto-generated if None.
         target_tier (str): "8K" (4320x7680 / 7680x4320) or "4K" (2160x3840 / 3840x2160).
         sharpness (float, optional): CAS filter strength (0.0 to 1.0).
         bitrate (str, optional): Target video bitrate (e.g. "85M", "45M").
-    
+
     Returns:
         Tuple[str, Dict[str, Any]]: Output video path and verified metadata.
     """
@@ -99,15 +97,15 @@ def upgrade_to_super_resolution(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n" + "="*70)
+    print("\n" + "="*70)
     print(f"🚀 CINEMA X-RAY SUPER-RESOLUTION ENGINE ({target_tier} ULTRA HD)")
-    print(f"="*70)
+    print("="*70)
     print(f"  Source Input:      {input_path.name} ({meta['width']}x{meta['height']})")
     print(f"  Target Resolution: {target_w}x{target_h} ({'9:16 Vertical Short' if is_vertical else '16:9 Long-Form'})")
     print(f"  Scaling Algorithm: Lanczos Resampling + AMD FidelityFX CAS (strength={cas_val})")
-    print(f"  Video Codec:       HEVC / H.265 (hvc1 container tag)")
+    print("  Video Codec:       HEVC / H.265 (hvc1 container tag)")
     print(f"  Target Bitrate:    {target_b}")
-    print(f"  Audio Passthrough: Lossless EBU R128 (-14 LUFS)")
+    print("  Audio Passthrough: Lossless EBU R128 (-14 LUFS)")
     print(f"  Output Path:       {output_path}\n")
 
     filter_graph = f"scale={target_w}:{target_h}:flags=lanczos,cas=strength={cas_val}"
@@ -130,7 +128,7 @@ def upgrade_to_super_resolution(
     ]
 
     start_time = time.time()
-    print(f"⚡ Encoding with Apple Silicon Hardware Acceleration (hevc_videotoolbox)...")
+    print("⚡ Encoding with Apple Silicon Hardware Acceleration (hevc_videotoolbox)...")
     res = subprocess.run(cmd_hardware, capture_output=True, text=True)
 
     if res.returncode != 0:

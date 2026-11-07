@@ -1,9 +1,9 @@
 import os
-import uuid
-import urllib.parse
 import subprocess
+import urllib.parse
+import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = REPO_ROOT / "output"
@@ -35,7 +35,7 @@ def generate_ai_scene_image(prompt: str, niche: str, output_path: str) -> str:
     clean_prompt = prompt.replace("\n", " ").strip()
     full_prompt = f"{clean_prompt}, {style_suffix}, vertical 9:16 framing, highly detailed, 8k resolution"
     encoded_prompt = urllib.parse.quote(full_prompt)
-    
+
     url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&nologo=true"
     cmd = ["curl", "-s", "-L", "--max-time", "15", url, "-o", str(output_path)]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -58,7 +58,7 @@ def render_ken_burns_clip(
     """
     os.makedirs(os.path.dirname(output_clip_path), exist_ok=True)
     frames = max(30, int(duration * fps))
-    
+
     # 4 distinct cinematic motion presets for rhythm
     motion_index = motion_type % 4
     if motion_index == 0:
@@ -108,10 +108,10 @@ def create_color_gradient_fallback(output_img_path: str, color_hex: str = "#1e1b
     return output_img_path
 
 def compile_scenes_to_video_track(
-    scenes: List[Dict[str, Any]],
+    scenes: list[dict[str, Any]],
     niche: str,
     output_track_path: str,
-    target_total_duration: Optional[float] = None
+    target_total_duration: float | None = None
 ) -> str:
     """
     Renders custom AI images for every scene matching the exact story narrative,
@@ -120,7 +120,7 @@ def compile_scenes_to_video_track(
     """
     os.makedirs(os.path.dirname(output_track_path), exist_ok=True)
     num_scenes = max(1, len(scenes))
-    
+
     # Calculate scene durations
     if target_total_duration and target_total_duration > 0:
         base_dur = target_total_duration / num_scenes
@@ -133,7 +133,7 @@ def compile_scenes_to_video_track(
     for idx, scene in enumerate(scenes):
         duration = durations[idx]
         scene_prompt = scene.get("visualPrompt") or scene.get("text") or f"scene {idx + 1}"
-        
+
         # 1. Check if scene already has an approved/generated image
         img_url = scene.get("imageUrl")
         chosen_img_path = None

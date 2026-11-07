@@ -1,6 +1,8 @@
 import os
 import unittest
-from backend.scene_visualizer import render_ken_burns_clip, create_color_gradient_fallback
+
+from backend.scene_visualizer import create_color_gradient_fallback, render_ken_burns_clip
+
 
 class TestSceneVisualizer(unittest.TestCase):
     def test_gradient_fallback_and_ken_burns(self):

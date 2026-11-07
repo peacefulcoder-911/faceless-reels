@@ -10,12 +10,12 @@ Maintains backward compatibility with legacy audio_generator and run_cinema_xray
 import os
 import re
 import time
-import json
 from pathlib import Path
-from typing import Literal, List, Dict, Any, Union
-from pydantic import BaseModel, Field
+from typing import Any, Literal
+
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_OUTPUT_DIR = REPO_ROOT / "output" / "script"
@@ -33,11 +33,11 @@ def _get_api_client():
                     api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
                     break
     if not api_key:
-        api_key = "AIzaSyDStjE_IOWgo7NWUSqrxHi3KBki2Rfyk0k"
+        raise ValueError("GEMINI_API_KEY environment variable is not set. Please export GEMINI_API_KEY or configure .env.")
     return genai.Client(api_key=api_key)
 
 
-def _generate_with_resilience(client, contents: List[str], response_schema: Any, temperature: float = 0.25) -> str:
+def _generate_with_resilience(client, contents: list[str], response_schema: Any, temperature: float = 0.25) -> str:
     """Generate structured content with model fallback and exponential backoff retry."""
     models_to_try = ["gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-flash-latest"]
     last_err = None
@@ -73,7 +73,7 @@ class SceneBeat(BaseModel):
     visual_search_query: str = Field(description="Concrete visual description of the exact movie moment, actor expression, or camera movement needed for automated clip matching.")
     camera_motion: Literal["STATIC", "SLOW_PUSH_IN", "FAST_ZOOM", "XRAY_FREEZE_HUD"]
     sfx_cue: Literal["NONE", "SUB_DROP", "WHOOSH", "TENSION_RISER", "GLITCH_CLICK"]
-    highlight_keywords: List[str] = Field(description="1-2 high-impact power words in this beat for gold subtitle highlighting.")
+    highlight_keywords: list[str] = Field(description="1-2 high-impact power words in this beat for gold subtitle highlighting.")
 
 
 class ScriptManifest(BaseModel):
@@ -87,8 +87,8 @@ class ScriptManifest(BaseModel):
     target_duration_sec: float
     total_word_count: int
     total_beat_count: int
-    chapters: List[str]
-    beats: List[SceneBeat]
+    chapters: list[str]
+    beats: list[SceneBeat]
 
 
 def _count_words(text: str) -> int:
@@ -96,7 +96,7 @@ def _count_words(text: str) -> int:
     return len(re.findall(r"\b\w+(?:'\w+)?\b", text))
 
 
-def _adjust_word_count(beats: List[SceneBeat], target_min: int, target_max: int) -> List[SceneBeat]:
+def _adjust_word_count(beats: list[SceneBeat], target_min: int, target_max: int) -> list[SceneBeat]:
     """
     Surgically fine-tunes word count if slightly outside bounds (<115 or >130 for short; <750 or >900 for long).
     Ensures zero loss of meaning while strictly satisfying Gatekeeper constraints.
@@ -288,7 +288,7 @@ Write the complete 5-chapter long-form documentary script manifest. Total spoken
 
 
 # Backward-compatible legacy wrapper
-def generate_cinematic_script(topic: str = None) -> Dict[str, Any]:
+def generate_cinematic_script(topic: str = None) -> dict[str, Any]:
     """
     Legacy wrapper maintaining 100% backward compatibility for existing scripts.
     Calls compile_script_from_job under the hood or generates a default short.

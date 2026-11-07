@@ -7,13 +7,13 @@ Supports:
   - LONG_5_6_MIN: Horizontal 1920x1080 Widescreen Lower-Third (Alignment=2, 52pt, MarginV 65, Outline 6, Shadow 3).
 """
 
-import os
 import json
+import os
 import re
 import subprocess
 from datetime import timedelta
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -41,7 +41,7 @@ def format_ass_time(seconds: float) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}.{centis:02d}"
 
 
-def align_with_whisper(audio_path: str, script_text: str) -> List[Dict[str, Any]]:
+def align_with_whisper(audio_path: str, script_text: str) -> list[dict[str, Any]]:
     """Performs millisecond-accurate forced speech alignment using faster-whisper and ffmpeg."""
     import numpy as np
     from faster_whisper import WhisperModel
@@ -157,14 +157,14 @@ def generate_timed_subtitles(
     cache_json_path: str = None,
     force_refresh: bool = False,
     video_format: str = "SHORT_45_SEC"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Generates subtitle cards strictly aligned to vocal cadence with instant pause clearance.
     Saves cards and impact_timestamps inside cache_json_path for downstream synchronization.
     """
     if not force_refresh and cache_json_path and os.path.exists(cache_json_path) and os.path.getsize(cache_json_path) > 10:
         try:
-            with open(cache_json_path, "r", encoding="utf-8") as f:
+            with open(cache_json_path, encoding="utf-8") as f:
                 data = json.load(f)
                 cards = data.get("cards", data) if isinstance(data, dict) else data
                 if cards and len(cards) > 5:
@@ -184,7 +184,9 @@ def generate_timed_subtitles(
     if not cards or len(cards) < 5:
         try:
             from google import genai
-            api_key = os.environ.get("GEMINI_API_KEY", "AIzaSyDStjE_IOWgo7NWUSqrxHi3KBki2Rfyk0k")
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY is not set.")
             client = genai.Client(api_key=api_key)
             print("Uploading audio to Gemini for acoustic alignment...")
             uploaded = client.files.upload(file=audio_path)

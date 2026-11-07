@@ -1,12 +1,13 @@
 import os
 import unittest
+
 from backend.pipeline_bridge import (
+    CAPTION_STYLE_CONFIGS,
     generate_script_engine,
-    synthesize_audio_engine,
     generate_subtitles_engine,
-    assemble_reel_engine,
-    CAPTION_STYLE_CONFIGS
+    synthesize_audio_engine,
 )
+
 
 class TestPipelineIntegration(unittest.TestCase):
     def test_caption_styles(self):
@@ -31,7 +32,8 @@ class TestPipelineIntegration(unittest.TestCase):
         temp_ass = "/tmp/test_reel_subtitles.ass"
         out = generate_subtitles_engine("/tmp/fake.wav", script_sample, "mrbeast", temp_ass)
         self.assertTrue(os.path.exists(out))
-        content = open(out).read()
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
         self.assertIn("[Script Info]", content)
         self.assertIn("Default", content)
         self.assertIn("Dialogue:", content)

@@ -4,18 +4,16 @@ Handles OAuth 2.0 authentication, token caching, chunked resumable video uploads
 and metadata tagging (title, description, tags, category, privacy, scheduling).
 """
 
-import os
-import sys
 import time
-import json
-from pathlib import Path
 from datetime import datetime, timezone
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
-from google_auth_oauthlib.flow import InstalledAppFlow
+from pathlib import Path
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -34,7 +32,7 @@ def get_youtube_service(client_secret_path=None, token_path=None):
     Re-uses token.json if valid; refreshes if expired; launches browser OAuth if needed.
     """
     CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     client_secret_path = Path(client_secret_path or DEFAULT_CLIENT_SECRETS)
     token_path = Path(token_path or DEFAULT_TOKEN_FILE)
 
@@ -110,7 +108,7 @@ def upload_video(
 ):
     """
     Uploads a video to YouTube with resumable chunks.
-    
+
     Args:
         file_path (str or Path): Path to the video file (.mp4)
         title (str): Video title (max 100 chars)
@@ -119,7 +117,7 @@ def upload_video(
         category_id (str): YouTube Category ID ('1' for Film & Animation)
         privacy_status (str): 'public', 'unlisted', or 'private'
         publish_at (datetime or str): Scheduled release in ISO 8601 UTC (if scheduling)
-    
+
     Returns:
         dict: {'id': video_id, 'url': video_url, 'status': privacy_status}
     """
@@ -128,7 +126,7 @@ def upload_video(
         raise FileNotFoundError(f"Video file not found: {file_path}")
 
     service = get_youtube_service(client_secret_path, token_path)
-    
+
     channel_info = get_channel_info(service)
     if channel_info:
         print(f"[YouTube Upload] Connected to Channel: '{channel_info['title']}' ({channel_info['url']})")
@@ -203,7 +201,7 @@ def upload_video(
 
     video_id = response.get("id")
     video_url = f"https://youtu.be/{video_id}"
-    print(f"\n🎉 Video Successfully Uploaded!")
+    print("\n🎉 Video Successfully Uploaded!")
     print(f"   Video ID:  {video_id}")
     print(f"   Watch URL: {video_url}")
     print(f"   Status:    {status_body['privacyStatus']}\n")
@@ -232,7 +230,7 @@ if __name__ == "__main__":
         srv = get_youtube_service()
         ch = get_channel_info(srv)
         if ch:
-            print(f"✅ Successfully authenticated!")
+            print("✅ Successfully authenticated!")
             print(f"   Channel Name: {ch['title']}")
             print(f"   Channel ID:   {ch['id']}")
             print(f"   Subscribers:  {ch['subscribers']}")

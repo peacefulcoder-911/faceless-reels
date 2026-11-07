@@ -1,10 +1,11 @@
-import os
-import json
 import csv
+import json
 import logging
-from pydantic import BaseModel
+import os
+
 from google import genai
 from google.genai import types
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -22,7 +23,7 @@ class YouTubeMetadata(BaseModel):
     tags: list[str]
 
 def load_config():
-    with open(CONFIG_FILE, 'r') as f:
+    with open(CONFIG_FILE) as f:
         return json.load(f)
 
 def generate_metadata():
@@ -31,12 +32,12 @@ def generate_metadata():
     if not os.path.exists(SCRIPT_FILE):
         raise FileNotFoundError(f"Missing {SCRIPT_FILE}")
 
-    with open(TOPIC_FILE, 'r', encoding='utf-8') as f:
+    with open(TOPIC_FILE, encoding='utf-8') as f:
         topic_data = json.load(f)
-    
-    with open(SCRIPT_FILE, 'r', encoding='utf-8') as f:
+
+    with open(SCRIPT_FILE, encoding='utf-8') as f:
         script_text = f.read().strip()
-        
+
     if not script_text:
         raise ValueError("Script text is empty.")
 

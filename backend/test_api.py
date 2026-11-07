@@ -1,6 +1,9 @@
 import unittest
+
 from fastapi.testclient import TestClient
+
 from backend.main import app
+
 
 class TestFacelessReelsAPI(unittest.TestCase):
     def setUp(self):
