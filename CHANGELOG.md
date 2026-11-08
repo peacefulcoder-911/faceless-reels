@@ -34,3 +34,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 9:16 vertical video compositing with multi-preset Ken Burns cinematic motion.
 - Deterministic QA Gatekeeper validating video, audio, and subtitle synchronization.
 - Automated YouTube metadata compiler and resumable chunked uploader.
+

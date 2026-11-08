@@ -28,3 +28,4 @@ We take the security of FacelessReels and our community seriously. If you believ
 - **Git Ignore**: Verify that `.env`, `credentials/`, and `config/client_secrets.json` are listed in `.gitignore` before committing.
 - **Accidental Leaks**: If you accidentally commit a live API key or credential, immediately revoke and rotate the key in the provider console (e.g. Google Cloud Console, ElevenLabs). Merely deleting the commit or deleting the file in a subsequent commit does NOT prevent past commit history from being read or indexed.
 - **Dry-Run Mode**: For YouTube upload integrations, always verify your configuration in dry-run mode (`dry_run=True`) before executing live publish operations.
+

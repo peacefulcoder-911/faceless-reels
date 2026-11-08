@@ -44,3 +44,4 @@ This roadmap outlines the planned technical milestones for **FacelessReels** as 
   - Performance feedback loop that fetches view and retention analytics from YouTube Studio API to fine-tune future script hooks.
 - [ ] **Multi-Language Dubbing Engine**:
   - Automated translation and voice re-synthesis with lip-sync / pacing adjustment for global localized reels.
+
